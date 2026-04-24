@@ -63,7 +63,7 @@ def make_platforms():
     for i in range(1, 8):
         level = difficulty_level()
         # Increased gap slightly to account for the much taller player
-        new_y = last_y - random.randint(140 + level * 5, 180 + level * 8)
+        new_y = last_y - random.randint(110, 150)
         new_x = random.randint(20, WIDTH - 130)
         platforms.append(make_platform(new_x, new_y, 110, 15, False))
         last_y = new_y
