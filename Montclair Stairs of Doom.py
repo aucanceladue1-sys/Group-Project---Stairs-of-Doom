@@ -38,9 +38,9 @@ except:
 player_rect = pygame.Rect(200, 550, PLAYER_W, PLAYER_H)
 player_y_speed = 0
 gravity = 0.5
-jump_power = -15
+jump_power = -16
 facing_right = True
-
+last_safe_platform = None
 score = 0
 lives = 3
 game_over = False
@@ -123,7 +123,9 @@ while True:
                     if old_y + PLAYER_H <= plat_rect.top:
                         player_rect.bottom = plat_rect.top
                         player_y_speed = jump_power
-                        if p[4]: p[5] = True
+                        last_safe_platform = p
+                        if p[4]:
+                            p[5] = True   
                         break
 
         for p in platforms:
@@ -143,17 +145,31 @@ while True:
         while len(platforms) < 8:
             level = difficulty_level()
             top_p = min(platforms, key=lambda p: p[1])
-            new_y = top_p[1] - random.randint(140 + level * 5, 180 + level * 8)
+            new_y = top_p[1] - random.randint(100,130)            
             platform_width = max(70, 110 - level * 5)
-            new_x = random.randint(20, WIDTH - platform_width - 20)
+            new_x = random.randint(40, WIDTH - platform_width - 40)
             falling = random.random() < (0 if score < 1500 else min(0.08 + level * 0.07, 0.55))
             platforms.append(make_platform(new_x, new_y, platform_width, 15, falling))
 
         if player_rect.top > HEIGHT:
             lives -= 1
-            player_rect.x, player_rect.y = 200, 550
-            player_y_speed = 0
-            if lives <= 0: game_over = True
+            if last_safe_platform is not None:
+                last_safe_platform[7] = False
+                last_safe_platform[5] = False
+                last_safe_platform[6] = 25
+                last_safe_platform[1] = 600
+                if last_safe_platform not in platforms:
+                    platforms.append(last_safe_platform)
+                player_rect.x = last_safe_platform[0] + last_safe_platform[2] // 2 - PLAYER_W // 2
+                player_rect.bottom = last_safe_platform[1]
+            else:
+                player_rect.x, player_rect.y = 200, 550
+
+            player_y_speed = jump_power
+            
+            if lives <= 0:
+                game_over = True
+
 
 
     if background_img:
