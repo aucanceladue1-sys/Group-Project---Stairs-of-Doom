@@ -85,6 +85,29 @@ def should_spawn_obstacle(level):
     return False
 
 
+def draw_sky_background():
+    screen.fill((135, 206, 235))
+
+    pygame.draw.circle(screen, (255, 245, 120), (390, 90), 45)
+
+    cloud_color = (255, 255, 255)
+
+    pygame.draw.circle(screen, cloud_color, (90, 120), 25)
+    pygame.draw.circle(screen, cloud_color, (120, 105), 35)
+    pygame.draw.circle(screen, cloud_color, (155, 120), 25)
+    pygame.draw.rect(screen, cloud_color, (85, 120, 75, 25))
+
+    pygame.draw.circle(screen, cloud_color, (310, 220), 22)
+    pygame.draw.circle(screen, cloud_color, (340, 205), 32)
+    pygame.draw.circle(screen, cloud_color, (375, 220), 22)
+    pygame.draw.rect(screen, cloud_color, (305, 220, 75, 22))
+
+    pygame.draw.circle(screen, cloud_color, (130, 360), 18)
+    pygame.draw.circle(screen, cloud_color, (155, 345), 28)
+    pygame.draw.circle(screen, cloud_color, (185, 360), 18)
+    pygame.draw.rect(screen, cloud_color, (125, 360, 65, 18))
+
+
 def make_platforms():
     global platforms_since_obstacle
 
@@ -131,6 +154,28 @@ def draw_button(text, x, y, w, h, inactive_color, active_color):
     screen.blit(text_surf, text_rect)
 
     return False
+
+
+def draw_title():
+    title_font = pygame.font.SysFont(None, 80)
+    lines = ["STAIRS", "OF", "DOOM"]
+
+    start_y = 145
+    spacing = 85
+
+    for i, line in enumerate(lines):
+        y = start_y + i * spacing
+
+        shadow = title_font.render(line, True, (50, 50, 50))
+        screen.blit(shadow, (WIDTH // 2 - shadow.get_width() // 2 + 4, y + 4))
+
+        for dx in [-2, 2]:
+            for dy in [-2, 2]:
+                outline = title_font.render(line, True, BLACK)
+                screen.blit(outline, (WIDTH // 2 - outline.get_width() // 2 + dx, y + dy))
+
+        main = title_font.render(line, True, WHITE)
+        screen.blit(main, (WIDTH // 2 - main.get_width() // 2, y))
 
 
 platforms = make_platforms()
@@ -269,20 +314,20 @@ while True:
             if lives <= 0:
                 game_over = True
 
-    if background_img:
-        screen.blit(background_img, (0, 0))
-    else:
-        screen.fill((230, 245, 255))
-
     if not game_started:
-        title_font = pygame.font.SysFont(None, 60)
-        title_surf = title_font.render("STAIRS OF DOOM", True, BLACK)
-        screen.blit(title_surf, (WIDTH // 2 - 180, 200))
+        if background_img:
+            screen.blit(background_img, (0, 0))
+        else:
+            screen.fill((230, 245, 255))
 
-        if draw_button("START", WIDTH // 2 - 75, 350, 150, 60, BUTTON_COLOR, BUTTON_HOVER):
+        draw_title()
+
+        if draw_button("START", WIDTH // 2 - 75, 430, 150, 60, BUTTON_COLOR, BUTTON_HOVER):
             game_started = True
 
     else:
+        draw_sky_background()
+
         for p in platforms:
             pr = pygame.Rect(p[0], p[1], p[2], p[3])
             color = (230, 170, 70) if p[4] else (90, 210, 120)
