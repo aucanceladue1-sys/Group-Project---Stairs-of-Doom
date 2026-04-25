@@ -26,6 +26,10 @@ except:
 #PLAYER DIMENSIONS
 PLAYER_W = 80  # Was 40
 PLAYER_H = 100  # Was 50
+# OBSTACLES
+OBSTACLE_W = 45
+OBSTACLE_H = 45
+obstacles = []
 
 #Student Image
 try:
