@@ -10,28 +10,25 @@ screen = pygame.display.set_mode((WIDTH, HEIGHT))
 pygame.display.set_caption("Montclair Stairs of Doom")
 clock = pygame.time.Clock()
 
-#COLORS
 WHITE = (255, 255, 255)
 BLACK = (0, 0, 0)
 BUTTON_COLOR = (50, 150, 255)
 BUTTON_HOVER = (80, 180, 255)
 
-#Background
 try:
     background_img = pygame.image.load("stairsbg.png").convert()
     background_img = pygame.transform.scale(background_img, (WIDTH, HEIGHT))
 except:
     background_img = None
 
-#PLAYER DIMENSIONS
-PLAYER_W = 80  # Was 40
-PLAYER_H = 100  # Was 50
-# OBSTACLES
-OBSTACLE_W = 45
-OBSTACLE_H = 45
-obstacles = []
+PLAYER_W = 80
+PLAYER_H = 100
 
-#Student Image
+OBSTACLE_W = 35
+OBSTACLE_H = 35
+obstacles = []
+platforms_since_obstacle = 5
+
 try:
     student_img_orig = pygame.image.load("student.png").convert_alpha()
     student_img = pygame.transform.scale(student_img_orig, (PLAYER_W, PLAYER_H))
@@ -55,31 +52,76 @@ def make_platform(x, y, w=200, h=30, falling_type=False):
     return [x, y, w, h, falling_type, False, 25, False]
 
 
+def make_obstacle(x, y):
+    return pygame.Rect(x, y, OBSTACLE_W, OBSTACLE_H)
+
+
 def difficulty_level():
     return min(int(score / 700), 6)
 
 
+def obstacle_x_on_platform(platform_x, platform_width):
+    side = random.choice(["left", "right"])
+
+    if side == "left":
+        return platform_x
+    else:
+        return platform_x + platform_width - OBSTACLE_W
+
+
+def should_spawn_obstacle(level):
+    global platforms_since_obstacle
+
+    if score < 1500:
+        return False
+
+    if platforms_since_obstacle < 5:
+        return False
+
+    if random.random() < min(0.08 + level * 0.06, 0.35):
+        platforms_since_obstacle = 0
+        return True
+
+    return False
+
+
 def make_platforms():
+    global platforms_since_obstacle
+
     platforms = []
     start_platform = make_platform(140, 650, 200, 15, False)
     platforms.append(start_platform)
+
     last_y = 650
+
     for i in range(1, 8):
         level = difficulty_level()
-        # Increased gap slightly to account for the much taller player
         new_y = last_y - random.randint(110, 150)
         new_x = random.randint(20, WIDTH - 130)
-        platforms.append(make_platform(new_x, new_y, 110, 15, False))
+        platform_width = 110
+
+        platforms.append(make_platform(new_x, new_y, platform_width, 15, False))
+
+        platforms_since_obstacle += 1
+
+        if should_spawn_obstacle(level):
+            obs_x = obstacle_x_on_platform(new_x, platform_width)
+            obs_y = new_y - OBSTACLE_H
+            obstacles.append(make_obstacle(obs_x, obs_y))
+
         last_y = new_y
+
     return platforms
 
 
 def draw_button(text, x, y, w, h, inactive_color, active_color):
     mouse = pygame.mouse.get_pos()
     click = pygame.mouse.get_pressed()
+
     if x + w > mouse[0] > x and y + h > mouse[1] > y:
         pygame.draw.rect(screen, active_color, (x, y, w, h), border_radius=10)
-        if click[0] == 1: return True
+        if click[0] == 1:
+            return True
     else:
         pygame.draw.rect(screen, inactive_color, (x, y, w, h), border_radius=10)
 
@@ -87,6 +129,7 @@ def draw_button(text, x, y, w, h, inactive_color, active_color):
     text_surf = font.render(text, True, WHITE)
     text_rect = text_surf.get_rect(center=(x + w / 2, y + h / 2))
     screen.blit(text_surf, text_rect)
+
     return False
 
 
@@ -109,12 +152,16 @@ while True:
         if keys[pygame.K_LEFT]:
             player_rect.x -= int(move_speed)
             facing_right = False
+
         if keys[pygame.K_RIGHT]:
             player_rect.x += int(move_speed)
             facing_right = True
 
-        if player_rect.right < 0: player_rect.left = WIDTH
-        if player_rect.left > WIDTH: player_rect.right = 0
+        if player_rect.right < 0:
+            player_rect.left = WIDTH
+
+        if player_rect.left > WIDTH:
+            player_rect.right = 0
 
         old_y = player_rect.y
         player_y_speed += current_gravity
@@ -123,58 +170,104 @@ while True:
         if player_y_speed > 0:
             for p in platforms:
                 plat_rect = pygame.Rect(p[0], p[1], p[2], p[3])
+
                 if player_rect.colliderect(plat_rect):
                     if old_y + PLAYER_H <= plat_rect.top:
                         player_rect.bottom = plat_rect.top
                         player_y_speed = jump_power
                         last_safe_platform = p
+
                         if p[4]:
-                            p[5] = True   
+                            p[5] = True
+
+                        break
+
+            for o in obstacles:
+                if player_rect.colliderect(o):
+                    if old_y + PLAYER_H <= o.top:
+                        lives -= 1
+                        player_rect.x, player_rect.y = 200, 550
+                        player_y_speed = jump_power
+
+                        if lives <= 0:
+                            game_over = True
+
                         break
 
         for p in platforms:
             if p[4] and p[5]:
                 p[6] -= 1
-                if p[6] <= 0: p[7] = True
-            if p[7]: p[1] += 6 + level
+                if p[6] <= 0:
+                    p[7] = True
+
+            if p[7]:
+                old_platform_y = p[1]
+                fall_amount = 6 + level
+                p[1] += fall_amount
+
+                for o in obstacles:
+                    if (
+                        o.bottom == old_platform_y
+                        and o.left >= p[0] - 5
+                        and o.right <= p[0] + p[2] + 5
+                    ):
+                        o.y += fall_amount
 
         if player_rect.y < 300 and player_y_speed < 0:
             scroll = abs(int(player_y_speed))
             player_rect.y += scroll
             score += scroll
-            for p in platforms: p[1] += scroll
+
+            for p in platforms:
+                p[1] += scroll
+
+            for o in obstacles:
+                o.y += scroll
 
         platforms = [p for p in platforms if p[1] < HEIGHT]
+        obstacles = [o for o in obstacles if o.y < HEIGHT]
 
         while len(platforms) < 8:
             level = difficulty_level()
             top_p = min(platforms, key=lambda p: p[1])
-            new_y = top_p[1] - random.randint(100,130)            
+            new_y = top_p[1] - random.randint(100, 130)
             platform_width = max(70, 110 - level * 5)
             new_x = random.randint(40, WIDTH - platform_width - 40)
-            falling = random.random() < (0 if score < 1500 else min(0.08 + level * 0.07, 0.55))
+
+            falling = random.random() < (
+                0 if score < 1500 else min(0.08 + level * 0.07, 0.55)
+            )
+
             platforms.append(make_platform(new_x, new_y, platform_width, 15, falling))
+
+            platforms_since_obstacle += 1
+
+            if should_spawn_obstacle(level):
+                obs_x = obstacle_x_on_platform(new_x, platform_width)
+                obs_y = new_y - OBSTACLE_H
+                obstacles.append(make_obstacle(obs_x, obs_y))
 
         if player_rect.top > HEIGHT:
             lives -= 1
+
             if last_safe_platform is not None:
                 last_safe_platform[7] = False
                 last_safe_platform[5] = False
                 last_safe_platform[6] = 25
                 last_safe_platform[1] = 600
+
                 if last_safe_platform not in platforms:
                     platforms.append(last_safe_platform)
+
                 player_rect.x = last_safe_platform[0] + last_safe_platform[2] // 2 - PLAYER_W // 2
                 player_rect.bottom = last_safe_platform[1]
             else:
                 player_rect.x, player_rect.y = 200, 550
 
             player_y_speed = jump_power
-            
+
             if lives <= 0:
                 game_over = True
-
-
 
     if background_img:
         screen.blit(background_img, (0, 0))
@@ -185,8 +278,10 @@ while True:
         title_font = pygame.font.SysFont(None, 60)
         title_surf = title_font.render("STAIRS OF DOOM", True, BLACK)
         screen.blit(title_surf, (WIDTH // 2 - 180, 200))
+
         if draw_button("START", WIDTH // 2 - 75, 350, 150, 60, BUTTON_COLOR, BUTTON_HOVER):
             game_started = True
+
     else:
         for p in platforms:
             pr = pygame.Rect(p[0], p[1], p[2], p[3])
@@ -194,7 +289,21 @@ while True:
             pygame.draw.rect(screen, color, pr)
             pygame.draw.rect(screen, BLACK, pr, 2)
 
-        #Player Image
+        for o in obstacles:
+            scale = 0.7
+
+            half_width = int(o.width * scale / 2)
+            height = int(o.height * scale)
+
+            points = [
+                (o.centerx, o.bottom - height),
+                (o.centerx - half_width, o.bottom),
+                (o.centerx + half_width, o.bottom)
+            ]
+
+            pygame.draw.polygon(screen, (200, 40, 40), points)
+            pygame.draw.polygon(screen, BLACK, points, 2)
+
         if student_img:
             if not facing_right:
                 flipped_img = pygame.transform.flip(student_img, True, False)
@@ -212,14 +321,18 @@ while True:
             overlay = pygame.Surface((WIDTH, HEIGHT), pygame.SRCALPHA)
             overlay.fill((255, 255, 255, 150))
             screen.blit(overlay, (0, 0))
+
             big_f = pygame.font.SysFont(None, 50)
             screen.blit(big_f.render("GAME OVER", True, BLACK), (140, 300))
+
             if draw_button("RETRY", WIDTH // 2 - 75, 380, 150, 50, BUTTON_COLOR, BUTTON_HOVER):
                 player_rect.x, player_rect.y = 200, 550
                 player_y_speed = 0
                 score = 0
                 lives = 3
                 game_over = False
+                obstacles = []
+                platforms_since_obstacle = 5
                 platforms = make_platforms()
 
     pygame.display.flip()
