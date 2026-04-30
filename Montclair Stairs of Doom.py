@@ -48,8 +48,9 @@ game_over = False
 game_started = False
 
 
-def make_platform(x, y, w=200, h=30, falling_type=False):
-    return [x, y, w, h, falling_type, False, 25, False]
+def make_platform(x, y, w=200, h=30, falling_type=False, moving=False):
+    move_speed = random.choice([-2, 2]) if moving else 0
+    return [x, y, w, h, falling_type, False, 25, False, moving, move_speed]
 
 
 def make_obstacle(x, y):
@@ -258,6 +259,17 @@ while True:
                     ):
                         o.y += fall_amount
 
+        for p in platforms:
+            if p[8]:
+                old_platform_x = p[0]
+                p[0] += p[9]
+
+                if p[0] <= 0 or p[0] + p[2] >= WIDTH:
+                    p[9] *= -1
+
+                if player_rect.bottom == p[1] and player_rect.right > p[0] and player_rect.left < p[0] + p[2]:
+                    player_rect.x += p[0] - old_platform_x
+
         if player_rect.y < 300 and player_y_speed < 0:
             scroll = abs(int(player_y_speed))
             player_rect.y += scroll
@@ -283,7 +295,9 @@ while True:
                 0 if score < 1500 else min(0.08 + level * 0.07, 0.55)
             )
 
-            platforms.append(make_platform(new_x, new_y, platform_width, 15, falling))
+            moving = random.random() < 0.25 if score >= 500 else False
+
+            platforms.append(make_platform(new_x, new_y, platform_width, 15, falling, moving))
 
             platforms_since_obstacle += 1
 
@@ -330,7 +344,14 @@ while True:
 
         for p in platforms:
             pr = pygame.Rect(p[0], p[1], p[2], p[3])
-            color = (230, 170, 70) if p[4] else (90, 210, 120)
+
+            if p[8]:
+                color = (80, 160, 255)
+            elif p[4]:
+                color = (230, 170, 70)
+            else:
+                color = (90, 210, 120)
+                
             pygame.draw.rect(screen, color, pr)
             pygame.draw.rect(screen, BLACK, pr, 2)
 
